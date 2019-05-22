@@ -1,6 +1,16 @@
-# Website checker v1
+# Website checker v1.1
 #
 # mvdl 02-02-2019
+
+# Update v1.1
+
+# added support for manual added test_strings without position test.
+#       you can now manual add test_strings and website ; delimited in the conf-file with offset 0.
+#       strings with offset 0 are not tested on position, only on occurence.
+
+# Cleanup and standarized name
+#       replaced dutch comments with english
+#       Configfile class renamed to WebChecker
 
 # requires beautifulsoup. Install pip install beautifulsoup4
 
@@ -12,50 +22,62 @@ from bs4 import BeautifulSoup
 
 print ("start program")
 
-class Configfile:
+class WebChecker:
         
-        #all things concerning the list with urls en teststrings
+        #main class
+        # variables :
+        # ipath = location configfile
+        # clines = list with configfile lines
+        # body = html string body of webpage requested
+        # methods:
+        # extract_test_string : extract teststring from website without teststring in conffigfile
+        # load_page : load and extract html body from url
+        # test_string: test if string is in body of webpage
+        # check_lines: iterate configfile lines
+        # end_object: write up any changes to conffigfile
+        
+        
 
         def __init__(self, path):
                 self.ipath = path
-                self.FILE = open(path, "r")
-                self.clines = self.FILE.read().split("\n")
-                self.FILE.close()
+                FILE = open(path, "r")
+                self.clines = FILE.read().split("\n")
+                FILE.close()
 
-        def ExtractTestString(self, Confline):
+        def extract_test_string(self, Confline):
                 # open website en extract a string of 50 chars
                 # at random position between <Body> tags
-                # add teststring and postition colon delimited
+                # add test_string and postition colon delimited
                 # to the conf file
 
                 # download web page
                 
-                self.LoadPage(Confline)
-                self.start = random.randint(1,len(self.body)-50)
-                self.teststring = self.body[self.start:self.start+50].replace("\n","")
-                print ("Teststring extracted : " + self.teststring)
+                self.load_page(Confline)
+                start = random.randint(1,len(self.body)-50)
+                new_string = self.body[start:start+50].replace("\n","")
+                print ("test_string extracted : " + new_string)
         
 
-                # write teststring and startposition to conf file
-                self.newlines = list()
+                # write test_string and startposition to conf file
+                newlines = list()
                 for line in self.clines:
                         if Confline in line:
-                                self.newline=Confline + ";" + str(self.start) + ";" + self.teststring
+                                newline=Confline + ";" + str(start) + ";" + new_string
                         else:
-                                self.newline = line
-                        self.newlines.append(self.newline)
+                                newline = line
+                        newlines.append(newline)
 
-                self.clines = self.newlines
+                self.clines = newlines
                 
 
-        def LoadPage(self, URL):
+        def load_page(self, URL):
                 # Load page and return body
 
                 try:
-                        self.response = urllib.request.urlopen(URL)
-                        self.html = self.response.read().decode("utf-8")
-                        self.soup = BeautifulSoup(self.html,features="html.parser")
-                        self.body = str(self.soup.body)
+                        response = urllib.request.urlopen(URL)
+                        html = response.read().decode("utf-8")
+                        soup = BeautifulSoup(html,features="html.parser")
+                        self.body = str(soup.body)
                         
                 except urllib.error.URLError:
                         print ("error in URL: " + Confline)
@@ -73,47 +95,66 @@ class Configfile:
                         exit(3)
                 
 
-        def TestString(self,Confline):
+        def test_string(self, Confline):
 
-                # openwebsite en extract teststring. compare with parsed data
-                self.testData = Confline.split(";")
-                self.LoadPage(self.testData[0])
+                # openwebsite en extract test_string. compare with parsed data
+                testData = Confline.split(";")
+                self.load_page(testData[0])
 
-                # losse vars voor de substringpositie ivm problemen met dubbele haken en lijstreferentie
-                self.startpos = int(self.testData[1])
-                self.newString =  self.body[self.startpos:self.startpos+50].replace("\n","")
-                if  self.newString != self.testData[2]:
-                        print("!!! Site veranderd: " + self.testData[0])
-                        print("!!! geregistreerde testsring == " + self.testData[2])
-                        print("!!! gevonden antwoord == " + self.newString)
+                if (testData[1] == 0):
+                        # 0 offset, no positional check
+                        newString =  self.body.replace("\n","")
+                        if newString not in testData[2]:
+                                print("!!! Site changed, string not found: " + testData[0])
+                                print("!!! registered test_string == " + testData[2])
+                        else:
+                                print("+++ site ok : " + testData[0])
+                                
                 else:
-                        print("+++ site ok : " + self.testData[0])
+
+                
+                        startpos = int(testData[1])
+                        newString =  self.body[startpos:startpos+50].replace("\n","")
+                        if  newString != testData[2]:
+                                print("!!! Site changed: " + testData[0])
+                                print("!!! registered test_string == " + testData[2])
+                                print("!!! found string == " + newString)
+                        else:
+                                print("+++ site ok : " + testData[0])
                 
                 
         
-
-        def EndObject(self):
+        def check_lines(self):
+                for Confline in self.clines:
+                        print (Confline)
+                        Confline = Confline.replace("\n","")
+                        if (';' not in Confline) and (bool (Confline)):
+                                Checker.extract_test_string(Confline)
+                        elif (bool (Confline)):
+                                Checker.test_string(Confline)
+        
+        def end_object(self):
                 print ("closing conffile")
-                self.FILEW = open(self.ipath, "w")
+                FILEW = open(self.ipath, "w")
                 for line in self.clines:
-                        self.FILEW.write(line+"\n")
-                self.FILEW.close()
+                        FILEW.write(line+"\n")
+                FILEW.close()
 
 
 if not sys.argv[1]:
         print ("reference to configfile not found")
-        print ("usage : python webchecker.py <path to configfile>")
+        print ("usage : python WebChecker.py <path to configfile>")
         exit(4)
         
                                 
 # Conffile = Configfile("d:\dev\pyprojects\websites.conf")
-Conffile = Configfile(sys.argv[1])
-print ("conffile gelezen")
-for Confline in Conffile.clines:
-        print (Confline)
-        if (';' not in Confline) and (bool (Confline)):
-                Conffile.ExtractTestString(Confline)
-        elif Confline.replace("\n","") and (bool (Confline)):
-                Conffile.TestString(Confline)
+Checker = WebChecker(sys.argv[1])
+print ("configfile read, starting check")
+Checker.check_lines()
 print("ending it all...")               
-Conffile.EndObject()
+Checker.end_object()
+
+
+
+
+
