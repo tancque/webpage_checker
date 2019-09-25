@@ -100,25 +100,24 @@ class WebChecker:
                       
 
         def test_string(self, Confline):
-
+        
                 # openwebsite en extract test_string. compare with parsed data
                 testData = Confline.split(";")
                 self.load_page(testData[0])
                 if (len(self.body) > 0):
-
-                        if (testData[1] == 0):
+                        if (testData[1] == "0"):
                                 # 0 offset, no positional check
                                 newString =  self.body.replace("\n","")
-                                if newString not in testData[2]:
+                                if testData[2] not in newString:
                                         print("!!! Site changed, string not found: " + testData[0])
-                                        print("!!! registered test_string == " + testData[2])
+                                        print("!!! registered 0 test_string == " + testData[2])
                                         self.mail_body += "<BR> site changed " + testData[0]
-                                         
+                                                                               
                                 else:
                                         print("+++ site ok : " + testData[0])
                                         self.mail_body += "<BR> +++ site ok : " + testData[0]
                         else:
-
+        
                         
                                 startpos = int(testData[1])
                                 newString =  self.body[startpos:startpos+50].replace("\n","")
