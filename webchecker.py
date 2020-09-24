@@ -1,6 +1,6 @@
-# Website checker v1.1
+# Website checker v1.1-j
 #
-# mvdl 02-02-2019
+# mvdl 28-08-2019
 
 # Update v1.1
 # added support for manual added test_strings without position test.
@@ -13,11 +13,15 @@
 
 # Update v1,2
 # added emailsupport.
-#       mail can be send via an smtp emailserver 
+#       mail can be send via an smtp emailserver
 #       to config an emailserver use a line in the conffile with following syntax:
 #       smtp:smtpservername:mailfrom:mailto;mailto;mailto;etc;etc;
 
-# requires beautifulsoup. Install "pip install beautifulsoup4
+# Update v1.3 23-09-2020
+# added  mail only on error status
+
+
+# requires beautifulsoup. Install "pip install beautifulsoup4"
 
 
 import urllib.request
@@ -32,7 +36,7 @@ from bs4 import BeautifulSoup
 print ("start program")
 
 class WebChecker:
-        
+
         #main class
         # variables :
         # ipath = location configfile
@@ -44,8 +48,8 @@ class WebChecker:
         # test_string: test if string is in body of webpage
         # check_lines: iterate configfile lines
         # end_object: write up any changes to conffigfile
-        
-        
+
+
 
         def __init__(self, path):
                 self.ipath = path
@@ -54,6 +58,7 @@ class WebChecker:
                 self.mail_body = "Results of webchecker<BR><BR>"
                 FILE.close()
                 self.mail_server = 'none'
+                self.dirty = False
 
         def extract_test_string(self, Confline):
                 # open website en extract a string of 50 chars
@@ -62,13 +67,13 @@ class WebChecker:
                 # to the conf file
 
                 # download web page
-                
+
                 self.load_page(Confline)
                 start = random.randint(1,len(self.body)-50)
                 new_string = self.body[start:start+50].replace("\n","")
                 print ("test_string extracted : " + new_string)
-                self.mail_body += "<BR> test_string extracted : " + new_string 
-        
+                self.mail_body += "<BR> test_string extracted : " + new_string
+
 
                 # write test_string and startposition to conf file
                 newlines = list()
@@ -80,7 +85,7 @@ class WebChecker:
                         newlines.append(newline)
 
                 self.clines = newlines
-                
+
 
         def load_page(self, URL):
                 # Load page and return body
@@ -91,16 +96,16 @@ class WebChecker:
                          html = response.read().decode("utf-8")
                          soup = BeautifulSoup(html,features="html.parser")
                          self.body = str(soup.body)
-                        
-                except Exception as e: 
+
+                except Exception as e:
                         print ("error in URL: " + URL + ", " + str(e))
                         print ("skipping line in configfile")
                         self.mail_body += "<BR> error in URL: " + URL + ", " + str(e)
                         self.body = ""
-                      
+                        self.dirty = True
 
         def test_string(self, Confline):
-        
+
                 # openwebsite en extract test_string. compare with parsed data
                 testData = Confline.split(";")
                 self.load_page(testData[0])
@@ -112,13 +117,14 @@ class WebChecker:
                                         print("!!! Site changed, string not found: " + testData[0])
                                         print("!!! registered 0 test_string == " + testData[2])
                                         self.mail_body += "<BR> site changed " + testData[0]
-                                                                               
+                                        self.dirty = True
+
                                 else:
                                         print("+++ site ok : " + testData[0])
                                         self.mail_body += "<BR> +++ site ok : " + testData[0]
                         else:
-        
-                        
+
+
                                 startpos = int(testData[1])
                                 newString =  self.body[startpos:startpos+50].replace("\n","")
                                 if  newString != testData[2]:
@@ -126,11 +132,12 @@ class WebChecker:
                                         print("!!! registered test_string == " + testData[2])
                                         print("!!! found string == " + newString)
                                         self.mail_body += "<BR> site changed " + testData[0]
+                                        self.dirty = True
                                 else:
                                         print("+++ site ok : " + testData[0])
                                         self.mail_body += "<BR> +++ site ok : " + testData[0]
-                        
-        
+
+
         def check_lines(self):
                 for Confline in self.clines:
                         print (Confline)
@@ -146,7 +153,7 @@ class WebChecker:
                                 self.test_string(Confline)
 
         def config_email(self, confline):
-                
+
                 data = confline.split(";")
                 self.mail_server = data[1]
                 self.mail_from = data[2]
@@ -154,38 +161,38 @@ class WebChecker:
 
                 print ('config mailsettings : mailserver = ' + self.mail_server)
                 print ('config mailsettings : to = ' +  ", ".join(self.mail_to))
-                
+
 
         def send_email(self):
 
-                mail_object = MIMEMultipart('alternative')
-                mail_object['Subject'] = "webpage checker"
-                mail_object['From'] = self.mail_from
-                mail_object['To'] = ", ".join(self.mail_to)
 
-                self.mail_body += "<P> --- end automated message --- </HTML></BODY>"
-                mime_mail_body = MIMEText (self.mail_body, 'html')
-                mail_object.attach(mime_mail_body)
-                mail_server = smtplib.SMTP(self.mail_server)
-                mail_server.sendmail(self.mail_from, self.mail_to, mail_object.as_string())  
-                mail_server.quit
-                
-                
-        
-        
+            mail_object = MIMEMultipart('alternative')
+            mail_object['Subject'] = "webpage checker"
+            mail_object['From'] = self.mail_from
+            mail_object['To'] = ", ".join(self.mail_to)
+
+            self.mail_body += "<P> --- end automated message --- </HTML></BODY>"
+            mime_mail_body = MIMEText (self.mail_body, 'html')
+            mail_object.attach(mime_mail_body)
+            mail_server = smtplib.SMTP(self.mail_server)
+            mail_server.sendmail(self.mail_from, self.mail_to, mail_object.as_string())
+            mail_server.quit
+
+
+
+
         def end_object(self):
                 print ("closing conffile")
                 FILEW = open(self.ipath, "w")
-              
+
                 for line in self.clines:
                         line  = line.strip()
                         if len(line) > 0:
                                 FILEW.write(line+"\n")
                 FILEW.close()
-                if (self.mail_server != 'none'):
+                if (self.mail_server != 'none') and (self.dirty==True):
                         print ('sending email')
-                        self.send_email()                    
-                
+                        self.send_email()
 
 
 if not sys.argv[1]:
